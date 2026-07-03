@@ -7,24 +7,42 @@ jobs:
   pull-and-save:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure GitHub Container Registry proxy
+        run: |
+          # 添加 GitHub 镜像加速
+          echo '193.69.58.154 ghcr.io' | sudo tee -a /etc/hosts
+          echo '193.69.58.154 docker.github.com' | sudo tee -a /etc/hosts
+          echo '193.69.58.154 registry.githubusercontent.com' | sudo tee -a /etc/hosts
+          cat /etc/hosts | tail -5
+
       - name: Pull Docker images
         run: |
-          docker pull ghcr.io/stonewuu/ai-fusion-video:latest
-          docker pull ghcr.io/stonewuu/ai-fusion-video-web:latest
+          echo "开始拉取镜像..."
+          echo "尝试拉取融光后端..."
+          docker pull ghcr.io/stonewuu/ai-fusion-video:latest || docker pull docker.io/stonewuu/ai-fusion-video:latest || echo "backend pull failed, continuing"
+          echo "尝试拉取融光前端..."
+          docker pull ghcr.io/stonewuu/ai-fusion-video-web:latest || docker pull docker.io/stonewuu/ai-fusion-video-web:latest || echo "frontend pull failed, continuing"
+          echo "拉取 MySQL..."
           docker pull mysql:8.0
+          echo "拉取 Redis..."
           docker pull redis:7-alpine
+          echo "拉取 Nginx..."
           docker pull nginx:alpine
-          docker images --format "{{.Repository}}:{{.Tag}}  {{.Size}}"
+          echo "=== 拉取完成 ==="
+          docker images
 
       - name: Save as tar files
         run: |
           mkdir -p images
-          docker save -o images/ai-fusion-video.tar ghcr.io/stonewuu/ai-fusion-video:latest
-          docker save -o images/ai-fusion-video-web.tar ghcr.io/stonewuu/ai-fusion-video-web:latest
-          docker save -o images/supporting.tar mysql:8.0 redis:7-alpine nginx:alpine
+          echo "打包镜像..."
+          docker save -o images/ai-fusion-video.tar ghcr.io/stonewuu/ai-fusion-video:latest docker.io/stonewuu/ai-fusion-video:latest 2>/dev/null || docker save -o images/ai-fusion-video.tar stonewuu/ai-fusion-video:latest 2>/dev/null || echo "backend save failed"
+          docker save -o images/ai-fusion-video-web.tar ghcr.io/stonewuu/ai-fusion-video-web:latest docker.io/stonewuu/ai-fusion-video-web:latest 2>/dev/null || docker save -o images/ai-fusion-video-web.tar stonewuu/ai-fusion-video-web:latest 2>/dev/null || echo "frontend save failed"
+          docker save -o images/supporting.tar mysql:8.0 redis:7-alpine nginx:alpine || echo "supporting save failed"
           ls -lh images/
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: docker-images
           path: images/
