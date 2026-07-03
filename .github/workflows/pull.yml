@@ -1,0 +1,31 @@
+name: Pull and Save Docker Images
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pull-and-save:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull Docker images
+        run: |
+          docker pull ghcr.io/stonewuu/ai-fusion-video:latest
+          docker pull ghcr.io/stonewuu/ai-fusion-video-web:latest
+          docker pull mysql:8.0
+          docker pull redis:7-alpine
+          docker pull nginx:alpine
+
+      - name: Save as tar files
+        run: |
+          mkdir -p images
+          docker save -o images/ai-fusion-video.tar ghcr.io/stonewuu/ai-fusion-video:latest
+          docker save -o images/ai-fusion-video-web.tar ghcr.io/stonewuu/ai-fusion-video-web:latest
+          docker save -o images/supporting.tar mysql:8.0 redis:7-alpine nginx:alpine
+          ls -lh images/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-images
+          path: images/
+          compression-level: 0
+          retention-days: 1
